@@ -1,0 +1,39 @@
+{
+  "name": "agentic-bi-backend",
+  "version": "0.1.0",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "data:import": "node scripts/import-retail-data.js",
+    "rag:index": "node scripts/index-public-knowledge.js",
+    "lint": "echo \"No backend lint configured yet\"",
+    "test": "node --test",
+    "test:unit": "node --test test/analytics.test.js",
+    "test:integration": "node --test test/server.test.js"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  },
+  "dependencies": {
+    "@langchain/core": "^1.2.19",
+    "@langchain/google-genai": "^2.3.4",
+    "@langchain/pgvector": "^0.1.0",
+    "@langchain/textsplitters": "^1.0.2",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.0",
+    "pg": "^8.16.0",
+    "pg-copy-streams": "^7.0.0",
+    "unzipper": "^0.12.5",
+    "zod": "^4.6.7"
+  }
+}

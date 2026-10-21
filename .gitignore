@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+dist/
+coverage/
+.vite/
+*.log
+
+# OS
+Thumbs.db
+/nul
+/project_path.pdf
+/backend/taskdef*.json
+/backend/data/*.json
+!/backend/data/public-knowledge.json

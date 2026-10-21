@@ -1,0 +1,22 @@
+{
+  "name": "agentic-ai-business-intelligence-platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm --prefix frontend run build",
+    "start:backend": "npm --prefix backend run start"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

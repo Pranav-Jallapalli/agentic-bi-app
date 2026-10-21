@@ -1,0 +1,24 @@
+[
+  {
+    "id": "uci-online-retail-dataset",
+    "title": "UCI Online Retail Dataset: Scope and Limitations",
+    "content": "The UCI Online Retail dataset contains invoice-line transactions from a UK-based non-store retailer, covering 1 December 2010 through 9 December 2011. Its fields include invoice number, stock code, product description, quantity, invoice date, unit price in pounds sterling, customer ID, and customer country. An invoice number beginning with C denotes a cancellation. Customer IDs are missing for some records. This is one retailer's historical microdata; it is not a representative sample of all UK retail and should not be directly compared with aggregate national retail indices without accounting for differences in population, period, currency, and measurement.",
+    "tags": ["dataset", "retail", "transactions", "limitations", "cancellations"],
+    "source": "https://archive.ics.uci.edu/dataset/352/online+retail",
+    "doi": "https://doi.org/10.24432/C5BW33",
+    "license": "CC BY 4.0",
+    "attribution": "Chen, D. (2015). Online Retail. UCI Machine Learning Repository.",
+    "publicationDate": "2015-11-05"
+  },
+  {
+    "id": "ons-retail-sales-august-2026",
+    "title": "ONS Retail Sales: August 2026 Context",
+    "content": "The Office for National Statistics reported that Great Britain retail sales volumes rose 0.9% in the three months to August 2026 compared with the three months to May 2026. Online spending values rose 1.9% over the same three-month comparison and 10.1% compared with the three months to August 2025. ONS cautions that monthly retail growth can be volatile and should be considered alongside rolling three-month movements. The bulletin describes aggregate national statistics, not the individual retailer in the UCI Online Retail transaction dataset; it can provide broad context but does not establish a cause for changes in that retailer's sales.",
+    "tags": ["retail", "online", "sales", "market-context", "ONS", "seasonality"],
+    "source": "https://www.ons.gov.uk/businessindustryandtrade/retailindustry/bulletins/retailsales/august2026",
+    "datasetSource": "https://www.ons.gov.uk/businessindustryandtrade/retailindustry/datasets/retailsalesindexreferencetables",
+    "license": "Open Government Licence v3.0",
+    "attribution": "Office for National Statistics, Retail sales, Great Britain: August 2026, released 18 September 2026.",
+    "publicationDate": "2026-09-18"
+  }
+]

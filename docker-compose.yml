@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: agentic-bi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentic_bi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '55432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d agentic_bi']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+    container_name: agentic-bi-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      HOST: ${HOST:-0.0.0.0}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agentic_bi
+      FRONTEND_URL: http://localhost:5173
+      JWT_SECRET: agentic-bi-local-dev-secret
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-30000}
+    ports:
+      - '5001:5001'
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: agentic-bi-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:5001
+    ports:
+      - '5173:5173'
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+
+volumes:
+  postgres_data:
