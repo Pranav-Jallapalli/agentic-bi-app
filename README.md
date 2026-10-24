@@ -34,13 +34,20 @@ Copy the backend example environment file and add your provider credentials:
 cp backend/.env.example backend/.env
 ```
 
-Then set the real values for:
+For Gemini narratives and Gemini embeddings, set:
 
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `OPENAI_BASE_URL` (optional for OpenAI-compatible providers)
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
 
-When the API key is present, the app automatically switches from the local deterministic orchestration mode into the real-model path. Without it, the app remains in the fallback deterministic workflow.
+To use Groq for narrative generation while keeping Gemini for embeddings and RAG, set:
+
+- `LLM_PROVIDER=groq`
+- `GROQ_API_KEY`
+- `GROQ_MODEL` (defaults to `openai/gpt-oss-20b`)
+
+Groq uses its OpenAI-compatible chat completions endpoint. OpenAI-compatible providers can also be configured with `LLM_PROVIDER=openai`, `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_BASE_URL`.
+
+Without a key for the selected narrative provider, the app uses local deterministic orchestration. Gemini embeddings continue to use `GEMINI_API_KEY` independently of the narrative provider.
 
 ## Default ports
 

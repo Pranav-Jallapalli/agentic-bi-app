@@ -5,19 +5,41 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { buildAnalyticsPlan, getAnalyticsSql, analyticsToolNames, runAnalyticsTool } from '../src/analytics-tools.js';
+import {
+  buildAnalyticsPlan,
+  getAnalyticsSql,
+  analyticsToolNames,
+  normalizeAnalyticsRows,
+  runAnalyticsTool,
+} from '../src/analytics-tools.js';
 import { createDocumentChunks, loadKnowledgeCorpus } from '../src/rag-service.js';
 
 test('retail questions map to fixed read-only analytics tools', () => {
   const countryPlan = buildAnalyticsPlan('Show total revenue by country');
+  const pluralCountryPlan = buildAnalyticsPlan('Which countries had the highest sales?');
   const latestMonthPlan = buildAnalyticsPlan('What were the top five products by revenue in the latest month available?');
 
   assert.equal(countryPlan.toolName, 'revenue_by_country');
+  assert.equal(pluralCountryPlan.toolName, 'revenue_by_country');
   assert.equal(latestMonthPlan.toolName, 'top_products_latest_month');
   assert.ok(analyticsToolNames.includes(countryPlan.toolName));
   assert.match(getAnalyticsSql(countryPlan.toolName), /FROM retail_transactions/i);
   assert.match(getAnalyticsSql(latestMonthPlan.toolName), /MAX\(invoice_date\)/i);
   assert.doesNotMatch(getAnalyticsSql(countryPlan.toolName), /INSERT|UPDATE|DELETE|DROP/i);
+});
+
+test('DOT stock code is presented as a plain-language postage label', () => {
+  const rows = normalizeAnalyticsRows([
+    { stockCode: 'DOT', product: 'DOTCOM POSTAGE', revenue: 100 },
+    { stockCode: '85123A', product: 'PRODUCT NAME', revenue: 50 },
+  ]);
+
+  assert.deepEqual(rows[0], {
+    stockCode: 'Postage and shipping fees',
+    product: 'Postage and shipping fees',
+    revenue: 100,
+  });
+  assert.equal(rows[1].product, 'PRODUCT NAME');
 });
 
 test('retail schema uses invoice-line data and has no sample inserts', async () => {

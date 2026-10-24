@@ -165,7 +165,7 @@ test('ask endpoint returns real product revenue data from Postgres', async () =>
     const body = await response.json();
 
     assert.equal(response.status, 200);
-    assert.ok(body.sql.toLowerCase().includes('from retail_transactions'));
+    assert.equal(Object.hasOwn(body, 'sql'), false);
     assert.ok(Array.isArray(body.data));
     assert.ok(body.data.length > 0);
     assert.ok(body.data[0].product);
@@ -342,16 +342,21 @@ test('saved reports can be created and retrieved through the API', async () => {
         summary: 'Product A remains the leading revenue driver.',
         topProduct: 'Product A',
         totalRevenue: 150000,
+        sql: 'SELECT * FROM retail_transactions',
       }),
     });
 
+    const createBody = await createResponse.json();
     const listResponse = await fetch(`http://127.0.0.1:${port}/api/reports`);
     const listBody = await listResponse.json();
+    const savedReport = listBody.reports.find((report) => report.question === 'Saved revenue review');
 
     assert.equal(createResponse.status, 200);
     assert.equal(listResponse.status, 200);
     assert.ok(Array.isArray(listBody.reports));
-    assert.ok(listBody.reports.some((report) => report.question === 'Saved revenue review'));
+    assert.equal(Object.hasOwn(createBody.report, 'sql'), false);
+    assert.ok(savedReport);
+    assert.equal(Object.hasOwn(savedReport, 'sql'), false);
   } finally {
     server.close();
   }
@@ -576,6 +581,7 @@ test('workspace API creates named workspaces and stores scoped reports', async (
       body: JSON.stringify({
         question: 'Q1 dashboard snapshot',
         summary: 'North America leads the portfolio.',
+        sql: 'SELECT * FROM retail_transactions',
       }),
     });
 
@@ -587,6 +593,9 @@ test('workspace API creates named workspaces and stores scoped reports', async (
     assert.equal(listResponse.status, 200);
     assert.ok(Array.isArray(listBody.workspaces));
     assert.ok(listBody.workspaces.some((workspace) => workspace.name === 'North America'));
+    const savedWorkspace = listBody.workspaces.find((workspace) => workspace.name === 'North America');
+    assert.ok(savedWorkspace.reports.length > 0);
+    assert.ok(savedWorkspace.reports.every((report) => !Object.hasOwn(report, 'sql')));
   } finally {
     server.close();
   }

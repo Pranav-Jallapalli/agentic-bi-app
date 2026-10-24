@@ -1,9 +1,21 @@
 :root {
+  --teal: #274245;
+  --teal-deep: #1d3538;
+  --teal-soft: #456568;
+  --sapling: #dfd6ae;
+  --sapling-light: #f5f1df;
+  --paper: #fffdf7;
+  --ink: #263b3d;
+  --muted: #687777;
+  --line: #d8dfd7;
+  --success: #486f58;
+  --warning: #a76b36;
+  --danger: #a64f4a;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #e5eefb;
-  background: #081421;
+  color: var(--ink);
+  background: var(--sapling-light);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -17,7 +29,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(135deg, #081421 0%, #0e1f36 100%);
+  background:
+    radial-gradient(ellipse at top left, rgba(223, 214, 174, 0.38), transparent 45%),
+    var(--sapling-light);
 }
 
 button,
@@ -28,9 +42,10 @@ select {
 }
 
 .app-shell {
-  max-width: 1200px;
+  width: calc(100% - 48px);
+  max-width: 1760px;
   margin: 0 auto;
-  padding: 32px 20px 64px;
+  padding: 32px 0 64px;
 }
 
 .topbar {
@@ -70,8 +85,9 @@ h1 {
 
 .dashboard {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.7fr);
   gap: 24px;
+  align-items: start;
 }
 
 .panel {
@@ -326,13 +342,48 @@ button:disabled {
 
 .insight-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 18px;
   margin-top: 20px;
 }
 
 .compact-panel {
   padding: 18px;
+}
+
+.disclosure-panel {
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(150, 181, 214, 0.18);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 12px 0;
+}
+
+.disclosure-panel > summary {
+  color: #dfefff;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 650;
+  list-style-position: outside;
+  padding: 2px 0;
+}
+
+.disclosure-panel > summary::marker {
+  color: #7cc7ff;
+}
+
+.disclosure-content {
+  margin-top: 16px;
+}
+
+.disclosure-content > :last-child {
+  margin-bottom: 0;
+}
+
+.saved-reports-panel {
+  margin-top: 20px;
 }
 
 .saved-reports-panel ul {
@@ -422,7 +473,390 @@ ul {
 }
 
 @media (max-width: 800px) {
+  .app-shell {
+    width: calc(100% - 24px);
+    padding-top: 20px;
+  }
+
   .dashboard {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Warm, high-contrast palette based on dark teal and yellow sapling. */
+body,
+input,
+textarea,
+select,
+button {
+  color: var(--ink);
+}
+
+.app-shell {
+  max-width: 1680px;
+}
+
+.topbar,
+.auth-header {
+  color: var(--teal);
+}
+
+.eyebrow,
+.kpi-label {
+  color: var(--teal-soft);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--teal);
+}
+
+.panel,
+.result-panel,
+.metrics-panel,
+.auth-panel,
+.chart-panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 30px rgba(39, 66, 69, 0.08);
+}
+
+.result-panel {
+  min-width: 0;
+}
+
+textarea,
+input,
+.workspace-row select,
+.report-toolbar select {
+  color: var(--ink);
+  background: #fffefa;
+  border: 1px solid #bdc9c2;
+}
+
+textarea::placeholder,
+input::placeholder {
+  color: #87928b;
+}
+
+textarea:focus,
+input:focus,
+select:focus,
+button:focus-visible,
+summary:focus-visible {
+  outline: 3px solid rgba(39, 66, 69, 0.28);
+  outline-offset: 2px;
+}
+
+.workspace-row select,
+.workspace-row input,
+.report-toolbar select,
+.report-toolbar input,
+.auth-form input {
+  color: var(--ink);
+  background: #fffefa;
+  border-color: #bdc9c2;
+}
+
+.checkbox-row {
+  color: var(--teal);
+}
+
+button {
+  color: var(--paper);
+  background: var(--teal);
+}
+
+button:hover:not(:disabled) {
+  background: var(--teal-deep);
+}
+
+.secondary-button {
+  color: var(--teal);
+  background: var(--sapling);
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #d2c797;
+}
+
+.auth-toggle-row .active {
+  box-shadow: inset 0 0 0 2px var(--sapling);
+}
+
+.team-summary-card,
+.kpi-card {
+  color: var(--teal);
+  background: var(--sapling-light);
+  border: 1px solid #e2dcc2;
+}
+
+.team-summary-card strong,
+.kpi-card strong {
+  color: var(--teal);
+}
+
+.kpi-card small,
+.placeholder {
+  color: var(--muted);
+}
+
+.overview-grid > .context-summary {
+  grid-column: 1 / -1;
+}
+
+.metrics-grid,
+.team-summary-grid {
+  gap: 14px;
+}
+
+.metric-card,
+.stat-card,
+.overview-card {
+  color: var(--teal);
+  background: var(--sapling-light);
+  border-color: #e2dcc2;
+}
+
+.alert-item {
+  color: var(--ink);
+  background: #f6f3e8;
+  border-color: var(--line);
+}
+
+.alert-item.info {
+  border-color: #a8bab3;
+}
+
+.alert-item.warning {
+  color: #70491f;
+  background: #f7efdd;
+  border-color: #dec79b;
+}
+
+.alert-item.degraded {
+  color: #773b38;
+  background: #f7e9e4;
+  border-color: #dfb9ae;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.insight-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.disclosure-panel,
+.saved-reports-panel {
+  padding: 0;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(39, 66, 69, 0.055);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.disclosure-panel:hover {
+  border-color: #a8bab3;
+  box-shadow: 0 10px 22px rgba(39, 66, 69, 0.1);
+  transform: translateY(-1px);
+}
+
+.disclosure-panel[open] {
+  border-color: #9eafaa;
+}
+
+.disclosure-panel > summary {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 14px;
+  min-height: 82px;
+  padding: 14px 16px;
+  color: var(--teal);
+  list-style: none;
+}
+
+.disclosure-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  color: var(--sapling-light);
+  background: var(--teal);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.insight-grid > .disclosure-panel:nth-child(even) .disclosure-icon {
+  color: var(--teal);
+  background: var(--sapling);
+}
+
+.insight-grid:nth-of-type(4n) > .disclosure-panel:nth-child(odd) .disclosure-icon {
+  color: var(--teal);
+  background: #d8e3dc;
+}
+
+.disclosure-heading {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.disclosure-heading strong {
+  color: var(--teal);
+  font-size: 0.97rem;
+  line-height: 1.3;
+}
+
+.disclosure-heading small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+
+.disclosure-arrow {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--teal-soft);
+  border-bottom: 2px solid var(--teal-soft);
+  transform: rotate(-45deg);
+  transition: transform 160ms ease;
+}
+
+details[open] > summary .disclosure-arrow {
+  transform: rotate(45deg);
+}
+
+.disclosure-content {
+  margin: 0;
+  padding: 2px 20px 18px 78px;
+  color: var(--ink);
+  border-top: 1px solid #e8ebe5;
+}
+
+.disclosure-content p {
+  margin-top: 14px;
+}
+
+.disclosure-content ul {
+  color: var(--ink);
+}
+
+.disclosure-content li {
+  margin-bottom: 8px;
+}
+
+.disclosure-content a {
+  color: var(--teal);
+  font-weight: 650;
+}
+
+.saved-reports-panel {
+  margin-top: 12px;
+}
+
+.saved-reports-panel .disclosure-content {
+  padding-left: 78px;
+}
+
+.chart-panel {
+  margin-top: 16px;
+}
+
+.bar-track {
+  background: #e9e5d5;
+}
+
+.bar-fill {
+  background: var(--teal);
+}
+
+.secondary-bar {
+  background: #b9a96b;
+}
+
+.chart-row strong,
+.chart-row span {
+  color: var(--teal);
+}
+
+th,
+td {
+  border-bottom-color: #e2e7e0;
+}
+
+th {
+  color: var(--teal);
+}
+
+code {
+  color: var(--teal);
+  background: var(--sapling-light);
+  border-color: var(--line);
+}
+
+ul {
+  color: var(--ink);
+}
+
+@media (max-width: 600px) {
+  .insight-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 800px) {
+  .app-shell {
+    width: calc(100% - 28px);
+    padding-top: 18px;
+  }
+
+  .disclosure-panel > summary {
+    grid-template-columns: 42px minmax(0, 1fr) 14px;
+    min-height: 74px;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .disclosure-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .disclosure-content,
+  .saved-reports-panel .disclosure-content {
+    padding: 2px 14px 16px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .team-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .team-summary-grid {
     grid-template-columns: 1fr;
   }
 }

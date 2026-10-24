@@ -12,6 +12,47 @@ const formatCurrency = (value) => new Intl.NumberFormat('en-GB', {
   currency: 'GBP',
 }).format(Number(value) || 0);
 
+const renderNarrative = (text) => String(text || '')
+  .replace(/<br\s*\/?>/gi, '\n')
+  .replace(/&lt;br\s*\/?&gt;/gi, '\n')
+  .split(/(\*\*[^*]+\*\*|\*[^*\n]+\*|\n)/g)
+  .filter(Boolean)
+  .map((part, index) => {
+    if (part === '\n') {
+      return <br key={index} />;
+    }
+
+    if (part.startsWith('*') && part.endsWith('*')) {
+      const markerLength = part.startsWith('**') ? 2 : 1;
+      return <strong key={index}>{part.slice(markerLength, -markerLength)}</strong>;
+    }
+
+    return part;
+  });
+
+function DisclosurePanel({
+  title,
+  description,
+  icon,
+  children,
+  open = false,
+  className = '',
+}) {
+  return (
+    <details className={`panel compact-panel disclosure-panel ${className}`} open={open}>
+      <summary>
+        <span className="disclosure-icon" aria-hidden="true">{icon}</span>
+        <span className="disclosure-heading">
+          <strong>{title}</strong>
+          <small>{description}</small>
+        </span>
+        <span className="disclosure-arrow" aria-hidden="true" />
+      </summary>
+      <div className="disclosure-content">{children}</div>
+    </details>
+  );
+}
+
 function App() {
   const [question, setQuestion] = useState(initialQuestion);
   const [result, setResult] = useState(null);
@@ -193,7 +234,6 @@ function App() {
           totalRevenue: result.overview?.totalRevenue,
           insight: result.insight?.summary,
           recommendation: result.recommendation,
-          sql: result.sql,
           userId: getCurrentUserId(),
         }),
       });
@@ -217,7 +257,6 @@ function App() {
             totalRevenue: result.overview?.totalRevenue,
             insight: result.insight?.summary,
             recommendation: result.recommendation,
-            sql: result.sql,
             userId: getCurrentUserId(),
           }),
         });
@@ -363,6 +402,11 @@ function App() {
     savedReports: savedReports.length,
     activeRole: authUser?.role || 'member',
   };
+  const resultColumns = result?.data?.length
+    ? Object.keys(result.data[0]).filter((column) => (
+      column !== 'stockCode' && !(column === 'region' && result.data[0].country)
+    ))
+    : [];
 
   const exportResult = (format = 'json') => {
     if (!result) {
@@ -377,7 +421,6 @@ function App() {
       overview: result.overview,
       insight: result.insight,
       recommendation: result.recommendation,
-      sql: result.sql,
       data: result.data,
       chartData: result.chartData,
       regionBreakdown: result.regionBreakdown,
@@ -648,35 +691,52 @@ function App() {
                   <strong>{formatCurrency(result.overview?.totalRevenue)}</strong>
                 </div>
                 <div className="kpi-card">
-                  <span className="kpi-label">Top product</span>
-                  <strong>{result.overview?.topProduct || 'N/A'}</strong>
+                  <span className="kpi-label">
+                    Top {result.overview?.topEntityLabel || 'product'}
+                  </span>
+                  <strong>
+                    {result.overview?.topEntityValue || result.overview?.topProduct || 'N/A'}
+                  </strong>
                 </div>
-                <div className="kpi-card">
-                  <span className="kpi-label">Context summary</span>
+                <DisclosurePanel
+                  title="Context summary"
+                  description="Retrieved context used for this answer"
+                  icon="CS"
+                  className="context-summary"
+                >
                   <small>{result.contextSummary || 'No context retrieved.'}</small>
-                </div>
+                </DisclosurePanel>
               </div>
 
               <div className="insight-grid">
-                <div className="panel compact-panel">
-                  <h3>AI insight</h3>
+                <DisclosurePanel
+                  title="AI insight"
+                  description="Key signals and business risks"
+                  icon="AI"
+                >
                   <p>{result.insight?.summary || 'No insight available yet.'}</p>
                   <ul>
                     <li>Risk level: {result.insight?.riskLevel || 'low'}</li>
                     <li>Trend: {result.insight?.trend || 'neutral'}</li>
                     <li>Top revenue: {formatCurrency(result.insight?.topRevenue)}</li>
                   </ul>
-                </div>
+                </DisclosurePanel>
 
-                <div className="panel compact-panel">
-                  <h3>Recommended action</h3>
+                <DisclosurePanel
+                  title="Recommended action"
+                  description="Suggested next steps"
+                  icon="GO"
+                >
                   <p>{result.recommendation || 'No recommendation available.'}</p>
-                </div>
+                </DisclosurePanel>
               </div>
 
               <div className="insight-grid">
-                <div className="panel compact-panel">
-                  <h3>RAG documents</h3>
+                <DisclosurePanel
+                  title={`RAG documents (${(result.ragDocuments || []).length})`}
+                  description="Sources retrieved for this question"
+                  icon="R"
+                >
                   {(result.ragDocuments || []).length === 0 ? (
                     <p>No matching docs were found for this request.</p>
                   ) : (
@@ -699,10 +759,13 @@ function App() {
                       ))}
                     </ul>
                   )}
-                </div>
+                </DisclosurePanel>
 
-                <div className="panel compact-panel">
-                  <h3>ML diagnostics</h3>
+                <DisclosurePanel
+                  title="ML diagnostics"
+                  description="Model findings and anomalies"
+                  icon="ML"
+                >
                   <p>{result.mlAnalysis?.summary || 'Local ML diagnostics are unavailable.'}</p>
                   <ul>
                     {(result.mlAnalysis?.anomalies || []).map((anomaly) => (
@@ -711,27 +774,36 @@ function App() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
               </div>
 
               <div className="insight-grid">
-                <div className="panel compact-panel">
-                  <h3>Executive brief</h3>
+                <DisclosurePanel
+                  title="Executive brief"
+                  description="A concise business overview"
+                  icon="EB"
+                >
                   <p>{result.executiveSummary || 'No executive summary available.'}</p>
-                </div>
+                </DisclosurePanel>
 
-                <div className="panel compact-panel">
-                  <h3>Forecast</h3>
+                <DisclosurePanel
+                  title="Forecast"
+                  description="Expected revenue and direction"
+                  icon="FC"
+                >
                   <p>{result.forecast?.summary || 'No forecast available.'}</p>
                   <ul>
                     <li>Trend: {result.forecast?.trend || 'stable'}</li>
                     <li>Change: {result.forecast?.changePct ?? 0}%</li>
                     <li>Forecast revenue: {formatCurrency(result.forecast?.forecastRevenue)}</li>
                   </ul>
-                </div>
+                </DisclosurePanel>
 
-                <div className="panel compact-panel">
-                  <h3>KPI drift</h3>
+                <DisclosurePanel
+                  title="KPI drift"
+                  description="Changes against the baseline"
+                  icon="K"
+                >
                   <p>{result.kpiDrift?.summary || 'No drift data available.'}</p>
                   <ul>
                     {(result.kpiDrift?.alerts || []).map((alert) => (
@@ -740,27 +812,43 @@ function App() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
               </div>
 
               <div className="insight-grid">
-                <div className="panel compact-panel">
-                  <h3>LLM context</h3>
-                  <p>{result.llmContext?.narrative || result.llmContext?.fallback || 'No LLM context available.'}</p>
+                <DisclosurePanel
+                  title="LLM insight"
+                  description="Narrative generated for your question"
+                  icon="AI"
+                  open
+                >
+                  <p>
+                    {renderNarrative(
+                      result.llmContext?.narrative
+                      || result.llmContext?.fallback
+                      || 'No LLM context available.',
+                    )}
+                  </p>
                   <small>
                     Provider: {result.llmContext?.provider || 'local'} · Model: {result.llmContext?.model || 'deterministic'}
                   </small>
-                </div>
+                </DisclosurePanel>
 
-                <div className="panel compact-panel">
-                  <h3>Forecast confidence</h3>
+                <DisclosurePanel
+                  title="Forecast confidence"
+                  description="Reliability of the forecast"
+                  icon="%"
+                >
                   <p>{result.forecast?.confidence || 'steady'}</p>
-                </div>
+                </DisclosurePanel>
               </div>
 
               <div className="insight-grid">
-                <div className="panel compact-panel">
-                  <h3>Agent plan</h3>
+                <DisclosurePanel
+                  title="Agent plan"
+                  description="Workflow steps completed"
+                  icon="AP"
+                >
                   <ul>
                     {(result.orchestration?.agentPlan || []).map((step) => (
                       <li key={step.name}>
@@ -768,10 +856,13 @@ function App() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
 
-                <div className="panel compact-panel">
-                  <h3>Session memory</h3>
+                <DisclosurePanel
+                  title="Session memory"
+                  description="Recent questions and answers"
+                  icon="SM"
+                >
                   <ul>
                     {(result.sessionMemory || []).map((entry) => (
                       <li key={`${entry.time}-${entry.question}`}>
@@ -779,12 +870,15 @@ function App() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
               </div>
 
               <div className="insight-grid">
-                <div className="panel compact-panel">
-                  <h3>Signal summary</h3>
+                <DisclosurePanel
+                  title="Signal summary"
+                  description="Highlights across the result"
+                  icon="S"
+                >
                   <ul>
                     {(result.signals || []).map((signal) => (
                       <li key={signal.label}>
@@ -792,10 +886,13 @@ function App() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
 
-                <div className="panel compact-panel">
-                  <h3>Operational anomalies</h3>
+                <DisclosurePanel
+                  title="Operational anomalies"
+                  description="Unusual operational movements"
+                  icon="!"
+                >
                   <ul>
                     {(result.anomalies || []).map((anomaly) => (
                       <li key={`${anomaly.label}-${anomaly.delta}`}>
@@ -803,7 +900,7 @@ function App() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
               </div>
 
               <div className="chart-panel panel">
@@ -846,8 +943,12 @@ function App() {
                 </div>
               </div>
 
-              <div className="panel compact-panel saved-reports-panel">
-                <h3>Saved reports</h3>
+              <DisclosurePanel
+                title={`Saved reports (${sortedSavedReports.length})`}
+                description="Search and reopen previous analyses"
+                icon="SR"
+                className="saved-reports-panel"
+              >
                 <div className="report-toolbar">
                   <input
                     type="text"
@@ -873,56 +974,69 @@ function App() {
                     ))}
                   </ul>
                 )}
-              </div>
+              </DisclosurePanel>
 
-              <div className="meta-grid">
-                <div>
-                  <h3>Summary</h3>
-                  <p>{result.summary}</p>
-                </div>
-                <div>
-                  <h3>Generated SQL</h3>
-                  <code>{result.sql}</code>
-                </div>
-              </div>
+              <DisclosurePanel
+                title="Answer summary"
+                description="How this result was summarized"
+                icon="AS"
+              >
+                <p>{result.summary}</p>
+              </DisclosurePanel>
 
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.data.map((row) => (
-                      <tr key={row.product}>
-                        <td>{row.product}</td>
-                        <td>{formatCurrency(row.revenue)}</td>
+              <DisclosurePanel
+                title={`Result rows (${result.data.length})`}
+                description="Detailed values behind the charts"
+                icon="DT"
+              >
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        {resultColumns.map((column) => (
+                          <th key={column}>{column.replace(/([A-Z])/g, ' $1')}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {result.data.map((row, index) => (
+                        <tr key={row.country || row.product || row.customer || row.month || index}>
+                          {resultColumns.map((column) => (
+                            <td key={column}>
+                              {column === 'revenue' ? formatCurrency(row[column]) : row[column]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </DisclosurePanel>
 
-              <div className="meta-grid">
-                <div>
-                  <h3>Evidence</h3>
+              <div className="insight-grid">
+                <DisclosurePanel
+                  title="Evidence"
+                  description="Sources supporting this answer"
+                  icon="EV"
+                >
                   <ul>
-                    {result.evidence.map((item) => (
+                    {(result.evidence || []).map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
 
-                <div>
-                  <h3>Agent trace</h3>
+                <DisclosurePanel
+                  title="Agent trace"
+                  description="How the request was processed"
+                  icon="AT"
+                >
                   <ul>
-                    {result.agentTrace.map((item) => (
+                    {(result.agentTrace || []).map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
-                </div>
+                </DisclosurePanel>
               </div>
             </>
           )}

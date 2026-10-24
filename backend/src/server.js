@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { spawn, spawnSync } from 'node:child_process';
 import { getDatabaseConfig } from './database-config.js';
-import { buildAnalyticsPlan, getAnalyticsSql } from './analytics-tools.js';
+import { buildAnalyticsPlan, getAnalyticsSql, normalizeAnalyticsRows } from './analytics-tools.js';
 import { callSqlMcpTool, closeMcpHost, searchVectorMcp } from './mcp/host.js';
 import { isRagConfigured, loadPublicKnowledge } from './rag-service.js';
 
@@ -201,6 +201,10 @@ const filterByUserId = (items, userId) => {
   return items.filter((item) => (item?.userId || 'demo-user') === normalized);
 };
 
+const omitGeneratedSql = (report) => Object.fromEntries(
+  Object.entries(report).filter(([key]) => key !== 'sql'),
+);
+
 const pool = new Pool(getDatabaseConfig());
 
 const BUSINESS_SCHEMA_SQL = `
@@ -269,14 +273,33 @@ const retrieveRelevantContext = async (question) => {
 
 const generateSqlQuery = (question) => getAnalyticsSql(buildAnalyticsPlan(question).toolName);
 
+const getTopResultDimension = (row) => {
+  if (!row) {
+    return { label: 'product', value: 'N/A' };
+  }
+
+  const dimensions = [
+    ['product', 'product'],
+    ['country', 'country'],
+    ['region', 'region'],
+    ['customer', 'customer'],
+    ['month', 'month'],
+  ];
+  const [key, label] = dimensions.find(([dimension]) => row[dimension]) || ['product', 'product'];
+
+  return { label, value: row[key] || 'N/A' };
+};
+
 const buildOverview = (rows, question, contextNotes) => {
   const totalRevenue = rows.reduce((sum, row) => sum + Number(row.revenue || 0), 0);
-  const topProduct = rows[0]?.product || 'N/A';
+  const topDimension = getTopResultDimension(rows[0]);
   const topRevenue = rows[0] ? Number(rows[0].revenue) : 0;
 
   return {
     totalRevenue,
-    topProduct,
+    topProduct: topDimension.value,
+    topEntityLabel: topDimension.label,
+    topEntityValue: topDimension.value,
     topRevenue,
     question,
     contextSummary: contextNotes.length
@@ -287,17 +310,19 @@ const buildOverview = (rows, question, contextNotes) => {
 
 const buildInsight = (rows, contextNotes) => {
   const totalRevenue = rows.reduce((sum, row) => sum + Number(row.revenue || 0), 0);
-  const topProduct = rows[0]?.product || 'N/A';
+  const topDimension = getTopResultDimension(rows[0]);
   const topRevenue = rows[0] ? Number(rows[0].revenue) : 0;
 
   const summary = contextNotes.length
-    ? `Revenue concentration is strongest in ${topProduct}; compare the result with the retrieved retail context before drawing conclusions about the cause.`
-    : `Revenue concentration is strongest in ${topProduct}. The live data indicates a healthy sales mix with no major context disruption.`;
+    ? `${topDimension.value} is the leading ${topDimension.label} by revenue; compare the result with the retrieved retail context before drawing conclusions about the cause.`
+    : `${topDimension.value} is the leading ${topDimension.label} by revenue. The live data indicates a healthy sales mix with no major context disruption.`;
 
   return {
     summary,
     totalRevenue,
-    topProduct,
+    topProduct: topDimension.value,
+    topEntityLabel: topDimension.label,
+    topEntityValue: topDimension.value,
     topRevenue,
     riskLevel: contextNotes.length ? 'moderate' : 'low',
     trend: topRevenue > 0 ? 'positive' : 'neutral',
@@ -596,19 +621,20 @@ const buildOrchestration = (question, rows, contextNotes) => {
   };
 };
 
-const buildAnswer = (question, rows, sql, contextNotes) => {
+const buildAnswer = (question, rows, contextNotes) => {
   const normalized = question.toLowerCase();
   const topRow = rows[0];
+  const topDimension = getTopResultDimension(topRow);
 
-  if (/(top|highest|largest|best).*product|product.*(top|highest|largest|best)|revenue.*product/.test(normalized) || rows[0]?.product) {
-    const leader = topRow ? `${topRow.product} leads at GBP ${Number(topRow.revenue).toLocaleString()}` : 'the top-performing product';
+  if (topRow && (topRow.product || topRow.country || topRow.region || topRow.customer)) {
+    const leader = `the leading ${topDimension.label} is ${topDimension.value}, with revenue of GBP ${Number(topRow.revenue).toLocaleString()}`;
     return {
       answer: `The SQL agent reviewed the sales data and found ${leader}.`,
-      summary: 'The agent searched live PostgreSQL revenue totals and ordered the results by contribution.',
+      summary: `The agent searched live PostgreSQL revenue totals and ordered the results by ${topDimension.label}.`,
       evidence: [
-        'The query grouped invoice lines by stock code and selected the available product description.',
+        `The query grouped invoice-line revenue by ${topDimension.label}.`,
         'Net revenue was aggregated from quantity multiplied by unit price, including cancellation lines.',
-        'Results were sorted in descending order to identify the strongest revenue driver.',
+        `Results were sorted in descending order to identify the leading ${topDimension.label}.`,
         ...contextNotes,
       ],
     };
@@ -635,12 +661,24 @@ const buildLLMContext = async (question, rows, contextNotes) => {
   const providerPreference = (process.env.LLM_PROVIDER || '').trim().toLowerCase();
   const geminiKey = process.env.GEMINI_API_KEY || '';
   const openAiKey = process.env.OPENAI_API_KEY || '';
-  const provider = providerPreference === 'gemini' ? 'gemini' : geminiKey ? 'gemini' : openAiKey ? 'openai' : 'local-deterministic';
+  const groqKey = process.env.GROQ_API_KEY || '';
+  const requestedProvider = ['gemini', 'openai', 'groq'].includes(providerPreference)
+    ? providerPreference
+    : null;
+  const provider = requestedProvider
+    || (geminiKey ? 'gemini' : groqKey ? 'groq' : openAiKey ? 'openai' : 'local-deterministic');
   const model = provider === 'gemini'
     ? (process.env.GEMINI_MODEL || 'gemini-3.8-flash')
-    : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+    : provider === 'groq'
+      ? (process.env.GROQ_MODEL || 'openai/gpt-oss-20b')
+      : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+  const providerKey = provider === 'gemini'
+    ? geminiKey
+    : provider === 'groq'
+      ? groqKey
+      : openAiKey;
 
-  if (!geminiKey && !openAiKey) {
+  if (!providerKey) {
     return {
       provider,
       model,
@@ -689,11 +727,14 @@ const buildLLMContext = async (question, rows, contextNotes) => {
         ?.join(' ')
         ?.trim();
     } else {
-      response = await fetchWithTimeout(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1', {
+      const baseUrl = provider === 'groq'
+        ? (process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1')
+        : (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1');
+      response = await fetchWithTimeout(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${openAiKey}`,
+          Authorization: `Bearer ${providerKey}`,
         },
         body: JSON.stringify({
           model,
@@ -1131,6 +1172,7 @@ app.get('/api/workspaces', async (req, res) => {
     .map((workspace) => ({
       ...workspace,
       userId: workspace.userId || 'demo-user',
+      reports: (workspace.reports || []).map(omitGeneratedSql),
       reportCount: Array.isArray(workspace.reports) ? workspace.reports.length : 0,
       shared: Boolean(workspace.shared),
     }));
@@ -1187,7 +1229,12 @@ app.get('/api/workspaces/:workspaceId', async (req, res) => {
     return res.status(404).json({ error: 'Workspace not found.' });
   }
 
-  return res.json({ workspace });
+  return res.json({
+    workspace: {
+      ...workspace,
+      reports: (workspace.reports || []).map(omitGeneratedSql),
+    },
+  });
 });
 
 app.get('/api/workspaces/:workspaceId/reports', async (req, res) => {
@@ -1205,7 +1252,7 @@ app.get('/api/workspaces/:workspaceId/reports', async (req, res) => {
     return res.status(404).json({ error: 'Workspace not found.' });
   }
 
-  return res.json({ reports: workspace.reports || [] });
+  return res.json({ reports: (workspace.reports || []).map(omitGeneratedSql) });
 });
 
 app.post('/api/workspaces/:workspaceId/reports', async (req, res) => {
@@ -1233,7 +1280,7 @@ app.post('/api/workspaces/:workspaceId/reports', async (req, res) => {
     return res.status(403).json({ error: 'This workspace is not available for the selected user.' });
   }
 
-  const { question, summary, topProduct, totalRevenue, insight, recommendation, sql } = req.body || {};
+  const { question, summary, topProduct, totalRevenue, insight, recommendation } = req.body || {};
 
   if (!question || typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ error: 'A valid report question is required.' });
@@ -1247,7 +1294,6 @@ app.post('/api/workspaces/:workspaceId/reports', async (req, res) => {
     totalRevenue: Number(totalRevenue) || 0,
     insight: insight || null,
     recommendation: recommendation || null,
-    sql: sql || null,
     userId: effectiveUserId,
     createdAt: new Date().toISOString(),
   };
@@ -1275,13 +1321,14 @@ app.get('/api/reports', async (req, res) => {
   const effectiveUserId = authUser ? authUser.email.toLowerCase() : requestedUserId;
   const reports = filterByUserId(savedReports, effectiveUserId)
     .slice()
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .map(omitGeneratedSql);
   return res.json({ reports });
 });
 
 app.post('/api/reports', async (req, res) => {
   savedReports = await loadSavedReports();
-  const { question, summary, topProduct, totalRevenue, insight, recommendation, sql, userId } = req.body || {};
+  const { question, summary, topProduct, totalRevenue, insight, recommendation, userId } = req.body || {};
 
   if (!question || typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ error: 'A valid report question is required.' });
@@ -1302,7 +1349,6 @@ app.post('/api/reports', async (req, res) => {
     totalRevenue: Number(totalRevenue) || 0,
     insight: insight || null,
     recommendation: recommendation || null,
-    sql: sql || null,
     userId: resolvedUserId,
     createdAt: new Date().toISOString(),
   };
@@ -1340,7 +1386,7 @@ app.post('/api/ask', async (req, res) => {
   try {
     const analyticsPlan = buildAnalyticsPlan(normalizedQuestion);
     const analyticsResult = await callSqlMcpTool(analyticsPlan.toolName, analyticsPlan.arguments);
-    const { rows, sql } = analyticsResult;
+    const rows = normalizeAnalyticsRows(analyticsResult.rows);
     knowledgeDocuments = await loadDocuments();
     let ragDocuments = [];
     try {
@@ -1349,7 +1395,7 @@ app.post('/api/ask', async (req, res) => {
       console.warn('Vector retrieval unavailable; continuing without retrieved context:', error.message);
     }
     const contextNotes = ragDocuments.map((document) => document.content);
-    const answerMeta = buildAnswer(normalizedQuestion, rows, sql, contextNotes);
+    const answerMeta = buildAnswer(normalizedQuestion, rows, contextNotes);
     const overview = buildOverview(rows, normalizedQuestion, contextNotes);
     const insight = buildInsight(rows, contextNotes);
     const recommendation = buildRecommendation(contextNotes, overview.topProduct);
@@ -1386,7 +1432,6 @@ app.post('/api/ask', async (req, res) => {
 
     const result = {
       question: normalizedQuestion,
-      sql,
       answer: answerMeta.answer,
       summary: answerMeta.summary,
       overview,

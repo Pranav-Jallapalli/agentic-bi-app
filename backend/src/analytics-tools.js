@@ -69,6 +69,16 @@ const queries = {
 
 export const analyticsToolNames = Object.freeze(Object.keys(queries));
 
+export const normalizeAnalyticsRows = (rows) => rows.map((row) => (
+  row.stockCode?.toUpperCase() === 'DOT'
+    ? {
+      ...row,
+      product: 'Postage and shipping fees',
+      stockCode: 'Postage and shipping fees',
+    }
+    : row
+));
+
 export const buildAnalyticsPlan = (question) => {
   const normalized = question.toLowerCase();
 
@@ -76,7 +86,7 @@ export const buildAnalyticsPlan = (question) => {
     return { toolName: 'top_products_latest_month', arguments: { limit: 5 } };
   }
 
-  if (/(region|country|area|territory).*(revenue|sales)|revenue.*(region|country|area|territory)|sales.*(region|country|area|territory)/.test(normalized)) {
+  if (/(region|countr(?:y|ies)|area|territory).*(revenue|sales)|revenue.*(region|countr(?:y|ies)|area|territory)|sales.*(region|countr(?:y|ies)|area|territory)/.test(normalized)) {
     return { toolName: 'revenue_by_country', arguments: {} };
   }
 
